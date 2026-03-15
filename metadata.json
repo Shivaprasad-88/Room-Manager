@@ -1,0 +1,5 @@
+{
+  "name": "RoomMate: Student Task Manager",
+  "description": "A collaborative task management app for students living together to track daily chores like garbage, water, and groceries.",
+  "requestFramePermissions": []
+}

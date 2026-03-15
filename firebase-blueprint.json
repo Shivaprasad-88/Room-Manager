@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "email": { "type": "string" },
+        "photoURL": { "type": "string" },
+        "nickname": { "type": "string" },
+        "currentRoomId": { "type": "string" }
+      },
+      "required": ["uid", "email"]
+    },
+    "Room": {
+      "title": "Room",
+      "description": "A shared living space for students",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdBy": { "type": "string" },
+        "members": { "type": "array", "items": { "type": "string" } },
+        "inviteCode": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "createdBy", "members", "inviteCode"]
+    },
+    "Task": {
+      "title": "Task",
+      "description": "A daily chore to be performed by a student",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "title": { "type": "string" },
+        "assignedTo": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "completed"] },
+        "date": { "type": "string", "format": "date" },
+        "type": { "type": "string", "enum": ["garbage", "water", "milk", "banana", "other"] }
+      },
+      "required": ["roomId", "title", "assignedTo", "status", "date", "type"]
+    },
+    "Activity": {
+      "title": "Activity",
+      "description": "Activity logs or messages within a room",
+      "type": "object",
+      "properties": {
+        "roomId": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "message": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["log", "chat"] }
+      },
+      "required": ["roomId", "userId", "message", "timestamp", "type"]
+    }
+  },
+  "firestore": {
+    "users/{uid}": {
+      "schema": "User",
+      "description": "User profiles"
+    },
+    "rooms/{roomId}": {
+      "schema": "Room",
+      "description": "Shared rooms"
+    },
+    "tasks/{taskId}": {
+      "schema": "Task",
+      "description": "Tasks for each room"
+    },
+    "activities/{activityId}": {
+      "schema": "Activity",
+      "description": "Room activity logs"
+    }
+  }
+}

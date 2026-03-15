@@ -1,0 +1,100 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Fields: uid, displayName, email, photoURL, nickname, currentRoomId
+    //
+    // Collection: rooms
+    // Fields: name, createdBy, members (array of uids), inviteCode, createdAt
+    //
+    // Collection: tasks
+    // Fields: roomId, title, assignedTo, status, date, type
+    //
+    // Collection: activities
+    // Fields: roomId, userId, userName, message, timestamp, type
+    //
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "kranthi95259@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isRoomMember(roomId) {
+      return isAuthenticated() && 
+        exists(/databases/$(database)/documents/rooms/$(roomId)) &&
+        request.auth.uid in get(/databases/$(database)/documents/rooms/$(roomId)).data.members;
+    }
+
+    // Rules for Users
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isOwner(userId);
+    }
+
+    // Rules for Rooms
+    match /rooms/{roomId} {
+      allow read: if isAuthenticated(); 
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (
+        request.auth.uid == resource.data.createdBy || 
+        isAdmin() ||
+        // Allow members to remove themselves or join
+        (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members', 'admins']) && (
+          // Joining: adding self to members
+          (request.resource.data.members.hasAll(resource.data.members) && 
+           request.resource.data.members.size() == resource.data.members.size() + 1 &&
+           request.auth.uid in request.resource.data.members) ||
+          // Leaving: removing self from members and admins
+          (resource.data.members.hasAll(request.resource.data.members) && 
+           resource.data.members.size() == request.resource.data.members.size() + 1 &&
+           !(request.auth.uid in request.resource.data.members))
+        ))
+      );
+      allow delete: if isAuthenticated() && (resource.data.createdBy == request.auth.uid || isAdmin());
+    }
+
+    // Rules for Tasks
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated() && isRoomMember(resource.data.roomId);
+      allow create: if isAuthenticated() && isRoomMember(request.resource.data.roomId);
+      allow update: if isAuthenticated() && isRoomMember(resource.data.roomId) && (
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'assignedTo'])
+      );
+      allow delete: if isAuthenticated() && isRoomMember(resource.data.roomId);
+    }
+
+    // Rules for Activities
+    match /activities/{activityId} {
+      allow read: if isAuthenticated() && isRoomMember(resource.data.roomId);
+      allow create: if isAuthenticated() && isRoomMember(request.resource.data.roomId);
+      allow update: if false;
+      allow delete: if isAuthenticated() && isRoomMember(resource.data.roomId);
+    }
+  }
+}
+
+/*
+{
+  "overallScore": 4,
+  "reasoning": "The rules implement basic ownership and room-based access control. Most operations are restricted to authenticated members of the specific room.",
+  "vulnerabilities": [
+    { "score": 4, "risk": "PII Exposure", "details": "User profiles are readable by any authenticated user. While this is common for social apps, it could be restricted to room members only if needed." },
+    { "score": 4, "risk": "Room Join Bypass", "details": "Any authenticated user can add themselves to any room if they know the roomId, as the update rule for 'members' only checks for authentication and that only the 'members' field is changing." }
+  ]
+}
+*/
